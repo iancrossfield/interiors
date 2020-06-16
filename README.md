@@ -1,6 +1,9 @@
 # interiors
 Perform basic inference on the interior composition of a planet.
 
+If you use this code please cite Ian Crossfield, as well as the interior models on which this code relies: [Valencia, D., IAUS 276, p.181]](https://ui.adsabs.harvard.edu/abs/2011IAUS..276..181V/abstract)
+
+
 Given a mass and radius, interpolate over previously-calculated
 interior models for various assumptions about its interior and report
 back the results.
