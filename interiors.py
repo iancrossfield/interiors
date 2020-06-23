@@ -93,6 +93,7 @@ def h2o_model(mp=None, ump=None, rp=None, urp=None, nsamp=1000, nmass=1000, nrad
       radius.
     """
     # 2019-12-12 IJMC: Created.
+    # 2020-06-23 15:23 IJMC: Fixed printout units
     # Generate a 2
     #if mp is None or rp is None: # just generate a grid
     gridmass = np.linspace(1, 20, nmass)
@@ -121,8 +122,8 @@ def h2o_model(mp=None, ump=None, rp=None, urp=None, nsamp=1000, nmass=1000, nrad
                 validfrac = 100.0*np.isfinite(h2ofracs).sum()/h2ofracs.size
                 h2ovalues = np.log10(np.nanmedian(h2ofracs)), \
                     np.std(np.log10(h2ofracs[np.isfinite(h2ofracs)]))
-                h2ovalues2 = (np.nanmedian(h2ofracs)), \
-                    np.std((h2ofracs[np.isfinite(h2ofracs)]))
+                h2ovalues2 = (100*np.nanmedian(h2ofracs)), \
+                    100*np.std((h2ofracs[np.isfinite(h2ofracs)]))
                 print('%1.3f%% of samples are consistent with a Rock+H/He composition.' % validfrac)
                 print('H2O mass fraction is roughly (%1.2f +/- %1.2f) dex' % h2ovalues)
                 print('                 or, roughly (%1.2f +/- %1.2f) %%' % h2ovalues2)
