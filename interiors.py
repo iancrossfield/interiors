@@ -20,6 +20,7 @@ interior with the rest of its mass in hydrogen and helium.
        
          import interiors
          import pylab as py
+         import numpy as np
 
          # Define your system:
          planetname = 'GJ 1214 b'
@@ -43,7 +44,7 @@ interior with the rest of its mass in hydrogen and helium.
 
 
 # 2020-06-16 16:04 IJMC: Commented code and put online.
-"""
+# 2020-06-24 17:02 IJMC: Updates: new H/He model from Lopez+2014, other minor fixes."""
 
 import pandas as pd
 from scipy import interpolate
@@ -51,17 +52,17 @@ import numpy as np
 
 
 
-#from scipy.interpolate import griddata
 
-_modelfile = 'valencia_2011_planetmodels.csv'
+#_modelfile = '~/proj/models/interior/valencia_2011_planetmodels.csv'
+_modelfile = 'valencia_2011_planetmodels_lopez2014-60pctHHe.csv'
 
 rearth = 6378.136 # km
 tab = pd.read_csv(_modelfile) 
 ntab = len(tab)
 allrad_h2o = np.array([tab[col].values/(rearth) for col in tab[['earth', '3_water', '10_water', '20_water', 'halfwater', 'allwater']]])
-allrad_hhe = np.array([tab[col].values/(rearth) for col in tab[['earth', '0.01_hhe', '0.1_hhe', '1_hhe', '10_hhe']]])
+allrad_hhe = np.array([tab[col].values/(rearth) for col in tab[['earth', '0.01_hhe', '0.1_hhe', '1_hhe', '10_hhe', '60_hhe']]])
 allh2o = np.tile(np.array([[8.7e-7*0.02, .03, .1, .2, .5, 1]]).T, (ntab))
-allhhe = np.tile(np.array([[8.7e-7*0.5e-6, .0001, .001, .01, .1]]).T, (ntab))
+allhhe = np.tile(np.array([[8.7e-7*0.5e-6, .0001, .001, .01, .1, .6]]).T, (ntab))
 allmass_h2o = np.tile((tab.mearth), (allh2o.shape[0],1))
 allmass_hhe = np.tile((tab.mearth), (allhhe.shape[0],1))
 
@@ -70,7 +71,7 @@ valid_hhe = np.isfinite(allrad_hhe*allhhe*allmass_hhe)
 
 
 
-def h2o_model(mp=None, ump=None, rp=None, urp=None, nsamp=1000, nmass=1000, nrad=900, verbose=True):
+def h2o_model(mp=None, ump=None, rp=None, urp=None, nsamp=1000, nmass=1000, nrad=900, verbose=True, outliersAreNan=False):
     """Infer the H2O fraction of a planet with an Earth-composition core.
 
     :INPUTS:
@@ -79,6 +80,12 @@ def h2o_model(mp=None, ump=None, rp=None, urp=None, nsamp=1000, nmass=1000, nrad
       rp, urp -- radius of planet (and its uncertainty) in Earth units
 
       nsamp -- number of Monte Carlo trials for assessing uncertainties
+
+      outliersAreNan : bool. 
+          If True, inferred mass fractions smaller than accounted for
+          in the interior model grid are returned as ZERO and values
+          larger than the maximum in the grid are returned as that
+          maximum value. If False, they are returned as np.nan
 
     :OUTPUTS:
       If no planet parameters are input, returned (mass, radius, H2O
@@ -91,9 +98,12 @@ def h2o_model(mp=None, ump=None, rp=None, urp=None, nsamp=1000, nmass=1000, nrad
       If mp,rp,ump,urp are all given, return 'nsamp' number of samples
       of H2O bulk mass fraction, assuming Gaussian errors on mass and
       radius.
+
     """
     # 2019-12-12 IJMC: Created.
     # 2020-06-23 15:23 IJMC: Fixed printout units
+    # 2020-06-24 16:39 IJMC: Added outliersAreNan option.
+    
     # Generate a 2
     #if mp is None or rp is None: # just generate a grid
     gridmass = np.linspace(1, 20, nmass)
@@ -103,8 +113,16 @@ def h2o_model(mp=None, ump=None, rp=None, urp=None, nsamp=1000, nmass=1000, nrad
 
     lo_limit = np.interp(gridmass, tab.mearth, tab['earth']/(rearth))
     hi_limit = np.interp(gridmass, tab.mearth, tab['allwater']/(rearth))
-    invalid = np.logical_or(grad < lo_limit, grad > hi_limit)
-    grid_z0[invalid] = np.nan
+
+    tooLow = grad < lo_limit
+    tooHigh = grad > hi_limit
+    invalid = np.logical_or(tooLow, tooHigh)
+    if outliersAreNan:
+        grid_z0[invalid] = np.nan
+    else:
+        grid_z0[tooLow] = 0.
+        grid_z0[tooHigh] = allh2o.max()
+        
     ret = gridmass, gridrad, grid_z0
     
     if mp is not None and rp is not None:
@@ -119,12 +137,15 @@ def h2o_model(mp=None, ump=None, rp=None, urp=None, nsamp=1000, nmass=1000, nrad
             h2ofracs[h2ofracs<0] = np.nan
             ret = h2ofracs
             if verbose:
-                validfrac = 100.0*np.isfinite(h2ofracs).sum()/h2ofracs.size
+                validValues = np.logical_and(np.logical_and(h2ofracs > 0, h2ofracs < allh2o.max()), \
+                                             np.isfinite(h2ofracs))
+                validfrac = 100.0*(validValues).sum()/h2ofracs.size
                 h2ovalues = np.log10(np.nanmedian(h2ofracs)), \
                     np.std(np.log10(h2ofracs[np.isfinite(h2ofracs)]))
                 h2ovalues2 = (100*np.nanmedian(h2ofracs)), \
                     100*np.std((h2ofracs[np.isfinite(h2ofracs)]))
                 print('%1.3f%% of samples are consistent with a Rock+H2O composition.' % validfrac)
+                print('%1.3f%% of samples had radii outside the H2O model grid.' % (100-validfrac))
                 print('H2O mass fraction is roughly (%1.2f +/- %1.2f) dex' % h2ovalues)
                 print('                 or, roughly (%1.2f +/- %1.2f) %%' % h2ovalues2)
         else:
@@ -135,7 +156,7 @@ def h2o_model(mp=None, ump=None, rp=None, urp=None, nsamp=1000, nmass=1000, nrad
     return ret
 
 
-def hhe_model(mp=None, ump=None, rp=None, urp=None, nsamp=1000, nmass=1000, nrad=900, verbose=True):
+def hhe_model(mp=None, ump=None, rp=None, urp=None, nsamp=1000, nmass=1000, nrad=900, verbose=True, outliersAreNan=False):
     """Infer the HHE fraction of a planet with an Earth-composition core.
 
     :INPUTS:
@@ -144,6 +165,12 @@ def hhe_model(mp=None, ump=None, rp=None, urp=None, nsamp=1000, nmass=1000, nrad
       ump, urp -- uncertainties on mass and radius, in Earth units
 
       nsamp -- number of Monte Carlo trials for assessing uncertainties
+
+      outliersAreNan : bool. 
+          If True, inferred mass fractions smaller than accounted for
+          in the interior model grid are returned as ZERO and values
+          larger than the maximum in the grid are returned as that
+          maximum value. If False, they are returned as np.nan
 
     :OUTPUTS:
       If no planet parameters are input, returned (mass, radius, HHE
@@ -159,6 +186,7 @@ def hhe_model(mp=None, ump=None, rp=None, urp=None, nsamp=1000, nmass=1000, nrad
     """
     # 2019-12-12 IJMC: Created.
     # 2020-04-13: Fixed hi_limit (was 'allwater')
+    # 2020-06-24 16:43 IJMC: Added outliersAreNan option.
     
     # Generate a 2
     #if mp is None or rp is None: # just generate a grid
@@ -167,11 +195,20 @@ def hhe_model(mp=None, ump=None, rp=None, urp=None, nsamp=1000, nmass=1000, nrad
     gmass, grad = np.meshgrid(gridmass, gridrad)
     grid_z0 = interpolate.griddata((allmass_hhe[valid_hhe], allrad_hhe[valid_hhe]), np.log10(allhhe[valid_hhe]), (gmass, grad), method='linear', fill_value=np.nan)
 
-    lo_limit = np.interp(gridmass, tab.mearth, tab['earth']/(rearth))
-    hi_limit = np.interp(gridmass, tab.mearth, tab['10_hhe']/(rearth))
-    invalid = np.logical_or(grad < lo_limit, grad > hi_limit)
-    grid_z0[invalid] = np.nan
+
+    lo_limit = np.interp(gridmass, tab.mearth, tab['0.01_hhe']/(rearth))
+    hi_limit = np.interp(gridmass, tab.mearth, tab['60_hhe']/(rearth))
+    tooLow = grad < lo_limit
+    tooHigh = grad > hi_limit
+    invalid = np.logical_or(tooLow, tooHigh)
+    if outliersAreNan:
+        grid_z0[invalid] = np.nan
+    else:
+        grid_z0[tooLow] = 0.
+        grid_z0[tooHigh] = allhhe.max()
+
     ret = gridmass, gridrad, 10**grid_z0
+
     
     if mp is not None and rp is not None:
         nangrid = np.logical_not(np.isfinite(grid_z0))
@@ -185,10 +222,13 @@ def hhe_model(mp=None, ump=None, rp=None, urp=None, nsamp=1000, nmass=1000, nrad
             hhefracs[hhefracs<=0] = np.nan
             ret = hhefracs
             if verbose:
-                validfrac = 100.0*np.isfinite(hhefracs).sum()/hhefracs.size
+                validValues = np.logical_and(np.logical_and(hhefracs > 0, hhefracs < allhhe.max()), \
+                                             np.isfinite(hhefracs))
+                validfrac = 100.0*(validValues).sum()/hhefracs.size
                 hhevalues = np.log10(np.nanmedian(hhefracs)), \
                     np.std(np.log10(hhefracs[np.isfinite(hhefracs)]))
-                print('%1.3f%% of samples are consistent with a Rock+H/He composition.' % validfrac)
+                print('%1.3f%% of samples can be modeled with a Rock+H/He composition.' % validfrac)
+                print('%1.3f%% of samples had radii outside the H/He model grid.' % (100-validfrac))
                 print('H/He mass fraction is roughly (%1.2f +/- %1.2f) dex' % hhevalues)
         else:
             hhefrac = 10**hhe_spline(rp, mp)
