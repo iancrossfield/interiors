@@ -1,7 +1,7 @@
 # interiors
 Perform basic inference on the interior composition of a planet.
 
-If you use this code please cite Ian Crossfield, as well as the interior models on which this code relies: [Valencia, D., IAUS 276, p.181](https://ui.adsabs.harvard.edu/abs/2011IAUS..276..181V/abstract)
+If you use this code please cite Ian Crossfield, as well as the interior models on which this code relies: [Valencia, D. 2011, IAUS 276, p.181](https://ui.adsabs.harvard.edu/abs/2011IAUS..276..181V/abstract) and [Lopez & Fortney 2014, ApJ 792](https://ui.adsabs.harvard.edu/abs/2014ApJ...792....1L/)
 
 
 Given a mass and radius, interpolate over previously-calculated
@@ -48,3 +48,4 @@ interior with the rest of its mass in hydrogen and helium.
 
 
  2020-06-16 16:04 IJMC: Commented code and put online.
+ 2020-06-24 17:02 IJMC: Updates: new H/He model from Lopez+2014, other minor fixes.
