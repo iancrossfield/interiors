@@ -124,7 +124,7 @@ def h2o_model(mp=None, ump=None, rp=None, urp=None, nsamp=1000, nmass=1000, nrad
                     np.std(np.log10(h2ofracs[np.isfinite(h2ofracs)]))
                 h2ovalues2 = (100*np.nanmedian(h2ofracs)), \
                     100*np.std((h2ofracs[np.isfinite(h2ofracs)]))
-                print('%1.3f%% of samples are consistent with a Rock+H/He composition.' % validfrac)
+                print('%1.3f%% of samples are consistent with a Rock+H2O composition.' % validfrac)
                 print('H2O mass fraction is roughly (%1.2f +/- %1.2f) dex' % h2ovalues)
                 print('                 or, roughly (%1.2f +/- %1.2f) %%' % h2ovalues2)
         else:
