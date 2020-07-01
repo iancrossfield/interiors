@@ -11,9 +11,9 @@ interior with a large H2O mass fraction.  Alternatively,
 interior with the rest of its mass in hydrogen and helium.
 
 *REQUIREMENTS*
+--Your planet's mass must be Neptune-ish or smaller 
 --pandas, numpy, scipy
 --You must set the correct path to the interior model files ("_modelfile")
-
 
     :EXAMPLE1:
       ::
@@ -54,7 +54,7 @@ import numpy as np
 
 
 #_modelfile = '~/proj/models/interior/valencia_2011_planetmodels.csv'
-_modelfile = 'valencia_2011_planetmodels_lopez2014-60pctHHe.csv'
+_modelfile = '~/proj/models/interior/valencia_2011_planetmodels_lopez2014-60pctHHe.csv'
 
 rearth = 6378.136 # km
 tab = pd.read_csv(_modelfile) 
@@ -187,6 +187,7 @@ def hhe_model(mp=None, ump=None, rp=None, urp=None, nsamp=1000, nmass=1000, nrad
     # 2019-12-12 IJMC: Created.
     # 2020-04-13: Fixed hi_limit (was 'allwater')
     # 2020-06-24 16:43 IJMC: Added outliersAreNan option.
+    # 2020-07-01 12:58 IJMC: A bit more finessing to handle low-mass fraction edge cases
     
     # Generate a 2
     #if mp is None or rp is None: # just generate a grid
@@ -204,8 +205,8 @@ def hhe_model(mp=None, ump=None, rp=None, urp=None, nsamp=1000, nmass=1000, nrad
     if outliersAreNan:
         grid_z0[invalid] = np.nan
     else:
-        grid_z0[tooLow] = 0.
-        grid_z0[tooHigh] = allhhe.max()
+        grid_z0[tooLow] = np.log10(allhhe.min())
+        grid_z0[tooHigh] = np.log10(allhhe.max())
 
     ret = gridmass, gridrad, 10**grid_z0
 
@@ -219,17 +220,23 @@ def hhe_model(mp=None, ump=None, rp=None, urp=None, nsamp=1000, nmass=1000, nrad
             rps = np.random.normal(rp, urp, size=int(nsamp))
             mps = np.random.normal(mp, ump, size=int(nsamp))
             hhefracs = 10**hhe_spline(rps, mps, grid=False)
-            hhefracs[hhefracs<=0] = np.nan
+            if outliersAreNan:
+                hhefracs[hhefracs<=0] = np.nan
+            else:
+                hhefracs[hhefracs<=allhhe.min()] = 0.
+                
             ret = hhefracs
             if verbose:
-                validValues = np.logical_and(np.logical_and(hhefracs > 0, hhefracs < allhhe.max()), \
+                validValues = np.logical_and(np.logical_and(hhefracs > allhhe.min(), hhefracs < allhhe.max()), \
                                              np.isfinite(hhefracs))
                 validfrac = 100.0*(validValues).sum()/hhefracs.size
                 hhevalues = np.log10(np.nanmedian(hhefracs)), \
                     np.std(np.log10(hhefracs[np.isfinite(hhefracs)]))
+                valid_hhevalues = np.log10(np.nanmedian(hhefracs[validValues])), \
+                    np.std(np.log10(hhefracs[validValues]))
                 print('%1.3f%% of samples can be modeled with a Rock+H/He composition.' % validfrac)
                 print('%1.3f%% of samples had radii outside the H/He model grid.' % (100-validfrac))
-                print('H/He mass fraction is roughly (%1.2f +/- %1.2f) dex' % hhevalues)
+                print('H/He mass fraction is roughly (%1.2f +/- %1.2f) dex for samples inside the grid' % valid_hhevalues)
         else:
             hhefrac = 10**hhe_spline(rp, mp)
             hhefracs[hhefracs<0] = np.nan
