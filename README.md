@@ -1,8 +1,9 @@
+# WARNING:
+Apparently the interior (Mass/Radius) models used in this code are somewhat out of date. You may want to instead try out the https://github.com/cpiaulet/smint tool.
+
 # interiors
 Perform basic inference on the interior composition of a planet.
 
-# WARNING:
-Apparently the interior (Mass/Radius) models used in this code are somewhat out of date. You may want to instead try out the https://github.com/cpiaulet/smint tool.
 
 If you use this code please cite Ian Crossfield, as well as the interior models on which this code relies: [Valencia, D. 2011, IAUS 276, p.181](https://ui.adsabs.harvard.edu/abs/2011IAUS..276..181V/abstract) and [Lopez & Fortney 2014, ApJ 792](https://ui.adsabs.harvard.edu/abs/2014ApJ...792....1L/)
 
